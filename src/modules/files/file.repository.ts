@@ -4,6 +4,7 @@ import { files } from '../../db/schema.js';
 
 export async function listFiles(input: {
   q?: string;
+  category?: string;
   createdAtFrom?: Date;
   createdAtTo?: Date;
   sortBy: string;
@@ -13,6 +14,7 @@ export async function listFiles(input: {
 }) {
   const filters = [];
   if (input.q) filters.push(ilike(files.originalName, `%${input.q}%`));
+  if (input.category) filters.push(eq(files.category, input.category));
   if (input.createdAtFrom) filters.push(gte(files.createdAt, input.createdAtFrom));
   if (input.createdAtTo) filters.push(lte(files.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
@@ -33,6 +35,8 @@ export async function createFileRecord(input: {
   mimeType: string;
   sizeBytes: number;
   path: string;
+  category: string;
+  isPublic: boolean;
   uploadedBy?: string;
 }) {
   const [file] = await db.insert(files).values(input).returning();
@@ -41,6 +45,10 @@ export async function createFileRecord(input: {
 
 export async function getFile(id: string) {
   return db.query.files.findFirst({ where: eq(files.id, id) });
+}
+
+export async function getPublicFile(id: string) {
+  return db.query.files.findFirst({ where: and(eq(files.id, id), eq(files.isPublic, true)) });
 }
 
 export async function deleteFile(id: string): Promise<void> {

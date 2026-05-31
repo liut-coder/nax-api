@@ -129,8 +129,11 @@ CREATE TABLE IF NOT EXISTS files (
   mime_type varchar(160) NOT NULL,
   size_bytes integer NOT NULL,
   path text NOT NULL,
+  category varchar(80) NOT NULL DEFAULT 'attachment',
+  is_public boolean NOT NULL DEFAULT false,
   uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS files_uploaded_by_idx ON files (uploaded_by);
+CREATE INDEX IF NOT EXISTS files_category_idx ON files (category);

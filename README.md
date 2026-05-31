@@ -275,6 +275,7 @@ curl http://localhost:3000/api/v1/users \
 - `DELETE /api/v1/auth/sessions/:id`
 - `GET /api/v1/auth/menus`
 - `GET /api/v1/system/base-info`
+- `GET /api/v1/public/files/:id`
 - `GET /api/v1/dashboard/overview`
 - `GET /api/v1/users`
 - `POST /api/v1/users`
@@ -288,6 +289,10 @@ curl http://localhost:3000/api/v1/users \
 - `GET /api/v1/audit-logs/export.csv`
 - `GET /api/v1/sessions`
 - `DELETE /api/v1/sessions/:id`
+- `POST /api/v1/files/upload`
+- `GET /api/v1/files`
+- `GET /api/v1/files/:id/download`
+- `DELETE /api/v1/files/:id`
 - `POST /api/v1/generator/modules/preview`
 - `POST /api/v1/generator/projects/preview`
 
@@ -310,9 +315,17 @@ The values come from editable `system_settings` rows in group `base`, for exampl
 
 - `base.name`
 - `base.logoUrl`
+- `base.adminName`
+- `base.adminLogoUrl`
+- `base.loginBackgroundUrl`
+- `base.homeBackgroundUrl`
+- `base.faviconUrl`
 - `base.version`
 - `base.loginTitle`
 - `base.loginSubtitle`
+- `base.projectDescription`
+- `base.copyright`
+- `base.supportUrl`
 - `base.defaultLanguage`
 - `base.theme`
 
@@ -321,6 +334,26 @@ Admins can update them through:
 ```text
 PUT /api/v1/settings/:key
 ```
+
+## Branding Assets
+
+Upload public branding assets with the authenticated file upload endpoint:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/files/upload \
+  -H "Authorization: Bearer <access_token>" \
+  -F "file=@logo.png" \
+  -F "category=branding" \
+  -F "isPublic=true"
+```
+
+The response returns the file `id`. Public files can then be read without authentication:
+
+```text
+GET /api/v1/public/files/:id
+```
+
+Use that public URL as the value of branding settings such as `base.logoUrl`, `base.adminLogoUrl`, `base.loginBackgroundUrl`, `base.homeBackgroundUrl` and `base.faviconUrl`.
 
 ## Generator
 

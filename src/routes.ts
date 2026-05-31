@@ -8,6 +8,7 @@ import { generatorRoutes } from './modules/generator/generator.route.js';
 import { healthRoutes } from './modules/health/health.route.js';
 import { menuRoutes } from './modules/menus/menu.route.js';
 import { permissionRoutes } from './modules/permissions/permission.route.js';
+import { publicRoutes } from './modules/public/public.route.js';
 import { roleRoutes } from './modules/roles/role.route.js';
 import { sessionRoutes } from './modules/sessions/session.route.js';
 import { settingRoutes } from './modules/settings/setting.route.js';
@@ -19,6 +20,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     async (api) => {
       await api.register(healthRoutes, { prefix: '/health' });
       await api.register(systemRoutes, { prefix: '/system' });
+      await api.register(publicRoutes, { prefix: '/public' });
       await api.register(authRoutes, { prefix: '/auth' });
       await api.register(dashboardRoutes, { prefix: '/dashboard' });
       await api.register(userRoutes, { prefix: '/users' });

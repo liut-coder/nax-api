@@ -228,11 +228,14 @@ export const files = pgTable(
     mimeType: varchar('mime_type', { length: 160 }).notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     path: text('path').notNull(),
+    category: varchar('category', { length: 80 }).notNull().default('attachment'),
+    isPublic: boolean('is_public').notNull().default(false),
     uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     uploadedByIdx: index('files_uploaded_by_idx').on(table.uploadedBy),
+    categoryIdx: index('files_category_idx').on(table.category),
   }),
 );
 
