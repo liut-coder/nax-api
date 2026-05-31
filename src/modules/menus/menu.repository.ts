@@ -30,13 +30,15 @@ export async function listMenus(input: {
         : input.sortBy === 'createdAt'
           ? menus.createdAt
           : menus.key;
-  const items = await db.query.menus.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(menus).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.menus.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(menus).where(where),
+  ]);
   return { items, total: value };
 }
 

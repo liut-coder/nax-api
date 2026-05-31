@@ -29,7 +29,7 @@ vi.mock('../../shared/token.js', () => ({
 
 vi.mock('./auth.repository.js', () => ({
   createRefreshToken: vi.fn(),
-  findActiveRefreshToken: vi.fn(),
+  consumeActiveRefreshToken: vi.fn(),
   findUserById: vi.fn(),
   findUserForLogin: vi.fn(),
   getUserPermissionKeys: vi.fn(),
@@ -40,7 +40,6 @@ vi.mock('./auth.repository.js', () => ({
   revokeRefreshTokenById: vi.fn(),
   revokeUserRefreshTokens: vi.fn(),
   touchLastLogin: vi.fn(),
-  touchRefreshToken: vi.fn(),
   updateCurrentUserPassword: vi.fn(),
   updateCurrentUserProfile: vi.fn(),
 }));
@@ -107,5 +106,22 @@ describe('auth service', () => {
     await expect(service.login(request, makeReply(), input)).rejects.toBeInstanceOf(UnauthorizedError);
     await expect(service.login(request, makeReply(), input)).rejects.toBeInstanceOf(UnauthorizedError);
     await expect(service.login(request, makeReply(), input)).rejects.toMatchObject({ code: 'LOGIN_LOCKED', statusCode: 429 });
+  });
+
+  it('refreshes by consuming the active refresh token once', async () => {
+    vi.mocked(repository.consumeActiveRefreshToken).mockResolvedValue({ userId: user.id } as never);
+    vi.mocked(repository.findUserById).mockResolvedValue(user as never);
+    const request = {
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'vitest' },
+      cookies: { refresh: 'refresh-token' },
+    } as never;
+    const reply = makeReply();
+
+    const result = await service.refresh(request, reply);
+
+    expect(result.accessToken).toBe('access-token');
+    expect(repository.consumeActiveRefreshToken).toHaveBeenCalledWith('hash:refresh-token');
+    expect(repository.revokeRefreshToken).not.toHaveBeenCalled();
   });
 });

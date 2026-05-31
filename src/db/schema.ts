@@ -29,6 +29,8 @@ export const users = pgTable(
   (table) => ({
     emailIdx: uniqueIndex('users_email_idx').on(table.email),
     usernameIdx: uniqueIndex('users_username_idx').on(table.username),
+    statusIdx: index('users_status_idx').on(table.status),
+    createdAtIdx: index('users_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -45,6 +47,7 @@ export const roles = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex('roles_key_idx').on(table.key),
+    createdAtIdx: index('roles_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -60,6 +63,8 @@ export const permissions = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex('permissions_key_idx').on(table.key),
+    resourceIdx: index('permissions_resource_idx').on(table.resource),
+    createdAtIdx: index('permissions_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -77,6 +82,7 @@ export const userRoles = pgTable(
   (table) => ({
     pk: uniqueIndex('user_roles_user_role_idx').on(table.userId, table.roleId),
     userIdx: index('user_roles_user_idx').on(table.userId),
+    roleIdx: index('user_roles_role_idx').on(table.roleId),
   }),
 );
 
@@ -94,6 +100,7 @@ export const rolePermissions = pgTable(
   (table) => ({
     pk: uniqueIndex('role_permissions_role_permission_idx').on(table.roleId, table.permissionId),
     roleIdx: index('role_permissions_role_idx').on(table.roleId),
+    permissionIdx: index('role_permissions_permission_idx').on(table.permissionId),
   }),
 );
 
@@ -115,6 +122,8 @@ export const refreshTokens = pgTable(
   (table) => ({
     tokenHashIdx: uniqueIndex('refresh_tokens_token_hash_idx').on(table.tokenHash),
     userIdx: index('refresh_tokens_user_idx').on(table.userId),
+    createdAtIdx: index('refresh_tokens_created_at_idx').on(table.createdAt),
+    expiresAtIdx: index('refresh_tokens_expires_at_idx').on(table.expiresAt),
   }),
 );
 
@@ -135,6 +144,9 @@ export const systemSettings = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex('system_settings_key_idx').on(table.key),
+    groupIdx: index('system_settings_group_idx').on(table.group),
+    publicGroupIdx: index('system_settings_public_group_idx').on(table.isPublic, table.group),
+    createdAtIdx: index('system_settings_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -158,6 +170,8 @@ export const menus = pgTable(
   (table) => ({
     keyIdx: uniqueIndex('menus_key_idx').on(table.key),
     parentIdx: index('menus_parent_idx').on(table.parentId),
+    enabledIdx: index('menus_enabled_idx').on(table.isEnabled),
+    createdAtIdx: index('menus_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -175,6 +189,8 @@ export const dataDictionaries = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex('data_dictionaries_key_idx').on(table.key),
+    enabledIdx: index('data_dictionaries_enabled_idx').on(table.isEnabled),
+    createdAtIdx: index('data_dictionaries_created_at_idx').on(table.createdAt),
   }),
 );
 
@@ -197,6 +213,7 @@ export const dataDictionaryItems = pgTable(
   (table) => ({
     dictionaryValueIdx: uniqueIndex('data_dictionary_items_dictionary_value_idx').on(table.dictionaryId, table.value),
     dictionaryIdx: index('data_dictionary_items_dictionary_idx').on(table.dictionaryId),
+    dictionarySortIdx: index('data_dictionary_items_dictionary_sort_idx').on(table.dictionaryId, table.sortOrder),
   }),
 );
 
@@ -216,6 +233,8 @@ export const auditLogs = pgTable(
   (table) => ({
     actorIdx: index('audit_logs_actor_idx').on(table.actorUserId),
     resourceIdx: index('audit_logs_resource_idx').on(table.resource, table.resourceId),
+    createdAtIdx: index('audit_logs_created_at_idx').on(table.createdAt),
+    resourceActionCreatedAtIdx: index('audit_logs_resource_action_created_at_idx').on(table.resource, table.action, table.createdAt),
   }),
 );
 
@@ -236,6 +255,8 @@ export const files = pgTable(
   (table) => ({
     uploadedByIdx: index('files_uploaded_by_idx').on(table.uploadedBy),
     categoryIdx: index('files_category_idx').on(table.category),
+    categoryCreatedAtIdx: index('files_category_created_at_idx').on(table.category, table.createdAt),
+    createdAtIdx: index('files_created_at_idx').on(table.createdAt),
   }),
 );
 

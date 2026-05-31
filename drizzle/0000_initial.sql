@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users (email);
 CREATE UNIQUE INDEX IF NOT EXISTS users_username_idx ON users (username);
+CREATE INDEX IF NOT EXISTS users_status_idx ON users (status);
+CREATE INDEX IF NOT EXISTS users_created_at_idx ON users (created_at);
 
 CREATE TABLE IF NOT EXISTS roles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS roles (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS roles_key_idx ON roles (key);
+CREATE INDEX IF NOT EXISTS roles_created_at_idx ON roles (created_at);
 
 CREATE TABLE IF NOT EXISTS permissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,6 +41,8 @@ CREATE TABLE IF NOT EXISTS permissions (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS permissions_key_idx ON permissions (key);
+CREATE INDEX IF NOT EXISTS permissions_resource_idx ON permissions (resource);
+CREATE INDEX IF NOT EXISTS permissions_created_at_idx ON permissions (created_at);
 
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -47,6 +52,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 
 CREATE UNIQUE INDEX IF NOT EXISTS user_roles_user_role_idx ON user_roles (user_id, role_id);
 CREATE INDEX IF NOT EXISTS user_roles_user_idx ON user_roles (user_id);
+CREATE INDEX IF NOT EXISTS user_roles_role_idx ON user_roles (role_id);
 
 CREATE TABLE IF NOT EXISTS role_permissions (
   role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
@@ -56,6 +62,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 
 CREATE UNIQUE INDEX IF NOT EXISTS role_permissions_role_permission_idx ON role_permissions (role_id, permission_id);
 CREATE INDEX IF NOT EXISTS role_permissions_role_idx ON role_permissions (role_id);
+CREATE INDEX IF NOT EXISTS role_permissions_permission_idx ON role_permissions (permission_id);
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,6 +78,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 CREATE UNIQUE INDEX IF NOT EXISTS refresh_tokens_token_hash_idx ON refresh_tokens (token_hash);
 CREATE INDEX IF NOT EXISTS refresh_tokens_user_idx ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS refresh_tokens_created_at_idx ON refresh_tokens (created_at);
+CREATE INDEX IF NOT EXISTS refresh_tokens_expires_at_idx ON refresh_tokens (expires_at);
 
 CREATE TABLE IF NOT EXISTS system_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,6 +96,9 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS system_settings_key_idx ON system_settings (key);
+CREATE INDEX IF NOT EXISTS system_settings_group_idx ON system_settings ("group");
+CREATE INDEX IF NOT EXISTS system_settings_public_group_idx ON system_settings (is_public, "group");
+CREATE INDEX IF NOT EXISTS system_settings_created_at_idx ON system_settings (created_at);
 
 CREATE TABLE IF NOT EXISTS menus (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -106,6 +118,8 @@ CREATE TABLE IF NOT EXISTS menus (
 
 CREATE UNIQUE INDEX IF NOT EXISTS menus_key_idx ON menus (key);
 CREATE INDEX IF NOT EXISTS menus_parent_idx ON menus (parent_id);
+CREATE INDEX IF NOT EXISTS menus_enabled_idx ON menus (is_enabled);
+CREATE INDEX IF NOT EXISTS menus_created_at_idx ON menus (created_at);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -121,6 +135,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS audit_logs_actor_idx ON audit_logs (actor_user_id);
 CREATE INDEX IF NOT EXISTS audit_logs_resource_idx ON audit_logs (resource, resource_id);
+CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at);
+CREATE INDEX IF NOT EXISTS audit_logs_resource_action_created_at_idx ON audit_logs (resource, action, created_at);
 
 CREATE TABLE IF NOT EXISTS files (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,3 +153,5 @@ CREATE TABLE IF NOT EXISTS files (
 
 CREATE INDEX IF NOT EXISTS files_uploaded_by_idx ON files (uploaded_by);
 CREATE INDEX IF NOT EXISTS files_category_idx ON files (category);
+CREATE INDEX IF NOT EXISTS files_category_created_at_idx ON files (category, created_at);
+CREATE INDEX IF NOT EXISTS files_created_at_idx ON files (created_at);

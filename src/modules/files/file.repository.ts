@@ -19,13 +19,15 @@ export async function listFiles(input: {
   if (input.createdAtTo) filters.push(lte(files.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
   const sortColumn = input.sortBy === 'originalName' ? files.originalName : input.sortBy === 'sizeBytes' ? files.sizeBytes : files.createdAt;
-  const items = await db.query.files.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(files).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.files.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(files).where(where),
+  ]);
   return { items, total: value };
 }
 

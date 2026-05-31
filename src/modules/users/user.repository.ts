@@ -21,13 +21,15 @@ export async function listUsers(input: {
   if (input.createdAtTo) filters.push(lte(users.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
   const sortColumn = input.sortBy === 'username' ? users.username : input.sortBy === 'email' ? users.email : users.createdAt;
-  const items = await db.query.users.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(users).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.users.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(users).where(where),
+  ]);
   return { items, total: value };
 }
 

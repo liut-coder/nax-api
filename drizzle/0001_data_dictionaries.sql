@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS data_dictionaries (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS data_dictionaries_key_idx ON data_dictionaries (key);
+CREATE INDEX IF NOT EXISTS data_dictionaries_enabled_idx ON data_dictionaries (is_enabled);
+CREATE INDEX IF NOT EXISTS data_dictionaries_created_at_idx ON data_dictionaries (created_at);
 
 CREATE TABLE IF NOT EXISTS data_dictionary_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -26,3 +28,4 @@ CREATE TABLE IF NOT EXISTS data_dictionary_items (
 
 CREATE UNIQUE INDEX IF NOT EXISTS data_dictionary_items_dictionary_value_idx ON data_dictionary_items (dictionary_id, value);
 CREATE INDEX IF NOT EXISTS data_dictionary_items_dictionary_idx ON data_dictionary_items (dictionary_id);
+CREATE INDEX IF NOT EXISTS data_dictionary_items_dictionary_sort_idx ON data_dictionary_items (dictionary_id, sort_order);

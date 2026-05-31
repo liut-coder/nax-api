@@ -1,5 +1,7 @@
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import type { MultipartFile } from '@fastify/multipart';
 import type { FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
@@ -31,20 +33,25 @@ export async function uploadFileService(request: FastifyRequest, file: Multipart
   const extension = file.filename.includes('.') ? `.${file.filename.split('.').pop()}` : '';
   const storedName = `${randomUUID()}${extension}`;
   const path = join(env.UPLOAD_DIR, storedName);
-  const buffer = await file.toBuffer();
-  await writeFile(path, buffer);
-  const record = await createFileRecord({
-    originalName: file.filename,
-    storedName,
-    mimeType: file.mimetype,
-    sizeBytes: buffer.length,
-    path,
-    category: meta.category,
-    isPublic: meta.isPublic,
-    uploadedBy: request.auth?.userId,
-  });
-  await writeAudit(request, { action: 'upload', resource: 'file', resourceId: record.id, metadata: meta });
-  return record;
+  try {
+    await pipeline(file.file, createWriteStream(path, { flags: 'wx' }));
+    const { size } = await stat(path);
+    const record = await createFileRecord({
+      originalName: file.filename,
+      storedName,
+      mimeType: file.mimetype,
+      sizeBytes: size,
+      path,
+      category: meta.category,
+      isPublic: meta.isPublic,
+      uploadedBy: request.auth?.userId,
+    });
+    await writeAudit(request, { action: 'upload', resource: 'file', resourceId: record.id, metadata: meta });
+    return record;
+  } catch (error) {
+    await unlink(path).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function getFileService(id: string) {

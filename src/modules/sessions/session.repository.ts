@@ -40,32 +40,29 @@ export async function listSessions(input: {
         ? refreshTokens.lastUsedAt
         : refreshTokens.createdAt;
 
-  const items = await db
-    .select({
-      id: refreshTokens.id,
-      userId: refreshTokens.userId,
-      userAgent: refreshTokens.userAgent,
-      ipAddress: refreshTokens.ipAddress,
-      expiresAt: refreshTokens.expiresAt,
-      revokedAt: refreshTokens.revokedAt,
-      lastUsedAt: refreshTokens.lastUsedAt,
-      createdAt: refreshTokens.createdAt,
-      userEmail: users.email,
-      username: users.username,
-      displayName: users.displayName,
-    })
-    .from(refreshTokens)
-    .innerJoin(users, eq(refreshTokens.userId, users.id))
-    .where(where)
-    .orderBy(input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`)
-    .limit(input.limit)
-    .offset(input.offset);
-
-  const [{ value }] = await db
-    .select({ value: count() })
-    .from(refreshTokens)
-    .innerJoin(users, eq(refreshTokens.userId, users.id))
-    .where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db
+      .select({
+        id: refreshTokens.id,
+        userId: refreshTokens.userId,
+        userAgent: refreshTokens.userAgent,
+        ipAddress: refreshTokens.ipAddress,
+        expiresAt: refreshTokens.expiresAt,
+        revokedAt: refreshTokens.revokedAt,
+        lastUsedAt: refreshTokens.lastUsedAt,
+        createdAt: refreshTokens.createdAt,
+        userEmail: users.email,
+        username: users.username,
+        displayName: users.displayName,
+      })
+      .from(refreshTokens)
+      .innerJoin(users, eq(refreshTokens.userId, users.id))
+      .where(where)
+      .orderBy(input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`)
+      .limit(input.limit)
+      .offset(input.offset),
+    db.select({ value: count() }).from(refreshTokens).innerJoin(users, eq(refreshTokens.userId, users.id)).where(where),
+  ]);
   return { items, total: value };
 }
 

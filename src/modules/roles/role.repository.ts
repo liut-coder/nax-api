@@ -17,13 +17,15 @@ export async function listRoles(input: {
   if (input.createdAtTo) filters.push(lte(roles.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
   const sortColumn = input.sortBy === 'name' ? roles.name : input.sortBy === 'createdAt' ? roles.createdAt : roles.key;
-  const items = await db.query.roles.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(roles).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.roles.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(roles).where(where),
+  ]);
   return { items, total: value };
 }
 

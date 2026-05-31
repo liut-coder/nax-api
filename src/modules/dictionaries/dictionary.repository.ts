@@ -19,13 +19,15 @@ export async function listDictionaries(input: {
   if (input.createdAtTo) filters.push(lte(dataDictionaries.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
   const sortColumn = input.sortBy === 'name' ? dataDictionaries.name : input.sortBy === 'createdAt' ? dataDictionaries.createdAt : dataDictionaries.key;
-  const items = await db.query.dataDictionaries.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(dataDictionaries).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.dataDictionaries.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(dataDictionaries).where(where),
+  ]);
   return { items, total: value };
 }
 

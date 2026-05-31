@@ -19,12 +19,14 @@ export async function listPermissions(input: {
   if (input.createdAtTo) filters.push(lte(permissions.createdAt, input.createdAtTo));
   const where = filters.length > 0 ? and(...filters) : undefined;
   const sortColumn = input.sortBy === 'createdAt' ? permissions.createdAt : input.sortBy === 'resource' ? permissions.resource : permissions.key;
-  const items = await db.query.permissions.findMany({
-    where,
-    limit: input.limit,
-    offset: input.offset,
-    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
-  });
-  const [{ value }] = await db.select({ value: count() }).from(permissions).where(where);
+  const [items, [{ value }]] = await Promise.all([
+    db.query.permissions.findMany({
+      where,
+      limit: input.limit,
+      offset: input.offset,
+      orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
+    }),
+    db.select({ value: count() }).from(permissions).where(where),
+  ]);
   return { items, total: value };
 }

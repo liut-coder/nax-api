@@ -63,14 +63,14 @@ export async function createRefreshToken(input: {
   return token;
 }
 
-export async function findActiveRefreshToken(tokenHash: string) {
-  return db.query.refreshTokens.findFirst({
-    where: and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())),
-  });
-}
-
-export async function touchRefreshToken(tokenHash: string): Promise<void> {
-  await db.update(refreshTokens).set({ lastUsedAt: new Date() }).where(eq(refreshTokens.tokenHash, tokenHash));
+export async function consumeActiveRefreshToken(tokenHash: string) {
+  const now = new Date();
+  const [token] = await db
+    .update(refreshTokens)
+    .set({ lastUsedAt: now, revokedAt: now })
+    .where(and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, now)))
+    .returning();
+  return token;
 }
 
 export async function revokeRefreshToken(tokenHash: string): Promise<void> {

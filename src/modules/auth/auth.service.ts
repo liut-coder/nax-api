@@ -6,7 +6,7 @@ import { addDays, createOpaqueToken, hashToken } from '../../shared/token.js';
 import { writeAudit } from '../../shared/audit.js';
 import {
   createRefreshToken,
-  findActiveRefreshToken,
+  consumeActiveRefreshToken,
   findUserById,
   findUserForLogin,
   getUserPermissionKeys,
@@ -17,7 +17,6 @@ import {
   revokeRefreshTokenById,
   revokeUserRefreshTokens,
   touchLastLogin,
-  touchRefreshToken,
   updateCurrentUserPassword,
   updateCurrentUserProfile,
 } from './auth.repository.js';
@@ -138,10 +137,8 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply) {
   const token = request.cookies[env.REFRESH_COOKIE_NAME];
   if (!token) throw new UnauthorizedError('Refresh token missing');
   const tokenHash = hashToken(token);
-  const stored = await findActiveRefreshToken(tokenHash);
+  const stored = await consumeActiveRefreshToken(tokenHash);
   if (!stored) throw new UnauthorizedError('Refresh token invalid');
-  await touchRefreshToken(tokenHash);
-  await revokeRefreshToken(tokenHash);
   const user = await findUserById(stored.userId);
   if (!user || !isUsableUser(user)) throw new UnauthorizedError('User disabled');
   await writeAudit(request, { action: 'refresh', resource: 'auth', resourceId: user.id });
