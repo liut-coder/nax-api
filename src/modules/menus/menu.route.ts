@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { looseEntitySchema, mutationResultSchema, pagedResponseSchema, successResponseSchema } from '../../shared/openapi.js';
 import { created, ok } from '../../shared/response.js';
 import {
   createMenuBodySchema,
@@ -24,38 +25,61 @@ type IdParams = z.infer<typeof idParams>;
 export async function menuRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/',
-    { preHandler: [app.authorize('menu:list')], schema: { tags: ['menus'], querystring: menuListQuerySchema } },
+    {
+      preHandler: [app.authorize('menu:list')],
+      schema: { tags: ['menus'], querystring: menuListQuerySchema, response: { 200: pagedResponseSchema(looseEntitySchema) } },
+    },
     async (request, reply) => ok(reply, request, await listMenusService(request.query as MenuListQuery)),
   );
 
   app.get(
     '/tree',
-    { preHandler: [app.authorize('menu:list')], schema: { tags: ['menus'] } },
+    {
+      preHandler: [app.authorize('menu:list')],
+      schema: { tags: ['menus'], response: { 200: successResponseSchema(z.array(looseEntitySchema)) } },
+    },
     async (request, reply) => ok(reply, request, await menuTreeService()),
   );
 
   app.get(
     '/:id',
-    { preHandler: [app.authorize('menu:list')], schema: { tags: ['menus'], params: idParams } },
+    {
+      preHandler: [app.authorize('menu:list')],
+      schema: { tags: ['menus'], params: idParams, response: { 200: successResponseSchema(looseEntitySchema) } },
+    },
     async (request, reply) => ok(reply, request, await getMenuService((request.params as IdParams).id)),
   );
 
   app.post(
     '/',
-    { preHandler: [app.authorize('menu:create')], schema: { tags: ['menus'], body: createMenuBodySchema } },
+    {
+      preHandler: [app.authorize('menu:create')],
+      schema: { tags: ['menus'], body: createMenuBodySchema, response: { 201: successResponseSchema(looseEntitySchema) } },
+    },
     async (request, reply) => created(reply, request, await createMenuService(request, request.body as CreateMenuBody)),
   );
 
   app.patch(
     '/:id',
-    { preHandler: [app.authorize('menu:update')], schema: { tags: ['menus'], params: idParams, body: updateMenuBodySchema } },
+    {
+      preHandler: [app.authorize('menu:update')],
+      schema: {
+        tags: ['menus'],
+        params: idParams,
+        body: updateMenuBodySchema,
+        response: { 200: successResponseSchema(looseEntitySchema) },
+      },
+    },
     async (request, reply) =>
       ok(reply, request, await updateMenuService(request, (request.params as IdParams).id, request.body as UpdateMenuBody)),
   );
 
   app.delete(
     '/:id',
-    { preHandler: [app.authorize('menu:delete')], schema: { tags: ['menus'], params: idParams } },
+    {
+      preHandler: [app.authorize('menu:delete')],
+      schema: { tags: ['menus'], params: idParams, response: { 200: successResponseSchema(mutationResultSchema) } },
+    },
     async (request, reply) => ok(reply, request, await deleteMenuService(request, (request.params as IdParams).id)),
   );
 }

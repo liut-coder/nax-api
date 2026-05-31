@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { looseEntitySchema, mutationResultSchema, pagedResponseSchema, successResponseSchema } from '../../shared/openapi.js';
 import { created, ok } from '../../shared/response.js';
 import {
   createDictionaryBodySchema,
@@ -37,7 +38,11 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/',
     {
       preHandler: [app.authorize('dictionary:list')],
-      schema: { tags: ['dictionaries'], querystring: dictionaryListQuerySchema },
+      schema: {
+        tags: ['dictionaries'],
+        querystring: dictionaryListQuerySchema,
+        response: { 200: pagedResponseSchema(looseEntitySchema) },
+      },
     },
     async (request, reply) => ok(reply, request, await listDictionariesService(request.query as DictionaryListQuery)),
   );
@@ -46,7 +51,7 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/key/:key',
     {
       preHandler: [app.authorize('dictionary:read')],
-      schema: { tags: ['dictionaries'], params: keyParams },
+      schema: { tags: ['dictionaries'], params: keyParams, response: { 200: successResponseSchema(looseEntitySchema) } },
     },
     async (request, reply) => ok(reply, request, await getDictionaryByKeyService((request.params as KeyParams).key)),
   );
@@ -55,7 +60,7 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/:id',
     {
       preHandler: [app.authorize('dictionary:read')],
-      schema: { tags: ['dictionaries'], params: idParams },
+      schema: { tags: ['dictionaries'], params: idParams, response: { 200: successResponseSchema(looseEntitySchema) } },
     },
     async (request, reply) => ok(reply, request, await getDictionaryService((request.params as IdParams).id)),
   );
@@ -64,7 +69,11 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/',
     {
       preHandler: [app.authorize('dictionary:create')],
-      schema: { tags: ['dictionaries'], body: createDictionaryBodySchema },
+      schema: {
+        tags: ['dictionaries'],
+        body: createDictionaryBodySchema,
+        response: { 201: successResponseSchema(looseEntitySchema) },
+      },
     },
     async (request, reply) => created(reply, request, await createDictionaryService(request, request.body as CreateDictionaryBody)),
   );
@@ -73,7 +82,12 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/:id',
     {
       preHandler: [app.authorize('dictionary:update')],
-      schema: { tags: ['dictionaries'], params: idParams, body: updateDictionaryBodySchema },
+      schema: {
+        tags: ['dictionaries'],
+        params: idParams,
+        body: updateDictionaryBodySchema,
+        response: { 200: successResponseSchema(looseEntitySchema) },
+      },
     },
     async (request, reply) =>
       ok(reply, request, await updateDictionaryService(request, (request.params as IdParams).id, request.body as UpdateDictionaryBody)),
@@ -83,7 +97,7 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/:id',
     {
       preHandler: [app.authorize('dictionary:delete')],
-      schema: { tags: ['dictionaries'], params: idParams },
+      schema: { tags: ['dictionaries'], params: idParams, response: { 200: successResponseSchema(mutationResultSchema) } },
     },
     async (request, reply) => ok(reply, request, await deleteDictionaryService(request, (request.params as IdParams).id)),
   );
@@ -92,7 +106,12 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/:id/items',
     {
       preHandler: [app.authorize('dictionary:update')],
-      schema: { tags: ['dictionaries'], params: idParams, body: createDictionaryItemBodySchema },
+      schema: {
+        tags: ['dictionaries'],
+        params: idParams,
+        body: createDictionaryItemBodySchema,
+        response: { 201: successResponseSchema(looseEntitySchema) },
+      },
     },
     async (request, reply) =>
       created(
@@ -106,7 +125,12 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/items/:itemId',
     {
       preHandler: [app.authorize('dictionary:update')],
-      schema: { tags: ['dictionaries'], params: itemParams, body: updateDictionaryItemBodySchema },
+      schema: {
+        tags: ['dictionaries'],
+        params: itemParams,
+        body: updateDictionaryItemBodySchema,
+        response: { 200: successResponseSchema(looseEntitySchema) },
+      },
     },
     async (request, reply) =>
       ok(
@@ -120,9 +144,8 @@ export async function dictionaryRoutes(app: FastifyInstance): Promise<void> {
     '/items/:itemId',
     {
       preHandler: [app.authorize('dictionary:update')],
-      schema: { tags: ['dictionaries'], params: itemParams },
+      schema: { tags: ['dictionaries'], params: itemParams, response: { 200: successResponseSchema(mutationResultSchema) } },
     },
     async (request, reply) => ok(reply, request, await deleteDictionaryItemService(request, (request.params as ItemParams).itemId)),
   );
 }
-

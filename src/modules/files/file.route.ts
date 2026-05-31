@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createReadStream } from 'node:fs';
 import { z } from 'zod';
 import { AppError } from '../../shared/errors.js';
+import { looseEntitySchema, mutationResultSchema, pagedResponseSchema, successResponseSchema } from '../../shared/openapi.js';
 import { created, ok } from '../../shared/response.js';
 import { fileListQuerySchema, type FileListQuery } from './file.schema.js';
 import { deleteFileService, getFileService, listFilesService, uploadFileService } from './file.service.js';
@@ -12,7 +13,10 @@ type IdParams = z.infer<typeof idParams>;
 export async function fileRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/',
-    { preHandler: [app.authorize('file:list')], schema: { tags: ['files'], querystring: fileListQuerySchema } },
+    {
+      preHandler: [app.authorize('file:list')],
+      schema: { tags: ['files'], querystring: fileListQuerySchema, response: { 200: pagedResponseSchema(looseEntitySchema) } },
+    },
     async (request, reply) => ok(reply, request, await listFilesService(request.query as FileListQuery)),
   );
 
@@ -24,6 +28,7 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         tags: ['files'],
         summary: 'Upload a file using multipart/form-data field named file',
         consumes: ['multipart/form-data'],
+        response: { 201: successResponseSchema(looseEntitySchema) },
       },
     },
     async (request, reply) => {
@@ -52,7 +57,7 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
     '/:id',
     {
       preHandler: [app.authorize('file:delete')],
-      schema: { tags: ['files'], params: idParams },
+      schema: { tags: ['files'], params: idParams, response: { 200: successResponseSchema(mutationResultSchema) } },
     },
     async (request, reply) => ok(reply, request, await deleteFileService(request, (request.params as IdParams).id)),
   );
