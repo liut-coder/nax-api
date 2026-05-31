@@ -1,14 +1,27 @@
-import { count, eq, ilike, or } from 'drizzle-orm';
+import { and, count, eq, gte, ilike, lte, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { permissions, rolePermissions, roles } from '../../db/schema.js';
 
-export async function listRoles(input: { q?: string; limit: number; offset: number }) {
-  const where = input.q ? or(ilike(roles.key, `%${input.q}%`), ilike(roles.name, `%${input.q}%`)) : undefined;
+export async function listRoles(input: {
+  q?: string;
+  createdAtFrom?: Date;
+  createdAtTo?: Date;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  limit: number;
+  offset: number;
+}) {
+  const filters = [];
+  if (input.q) filters.push(or(ilike(roles.key, `%${input.q}%`), ilike(roles.name, `%${input.q}%`)));
+  if (input.createdAtFrom) filters.push(gte(roles.createdAt, input.createdAtFrom));
+  if (input.createdAtTo) filters.push(lte(roles.createdAt, input.createdAtTo));
+  const where = filters.length > 0 ? and(...filters) : undefined;
+  const sortColumn = input.sortBy === 'name' ? roles.name : input.sortBy === 'createdAt' ? roles.createdAt : roles.key;
   const items = await db.query.roles.findMany({
     where,
     limit: input.limit,
     offset: input.offset,
-    orderBy: (table, { asc }) => [asc(table.key)],
+    orderBy: [input.sortOrder === 'asc' ? sql`${sortColumn} asc` : sql`${sortColumn} desc`],
   });
   const [{ value }] = await db.select({ value: count() }).from(roles).where(where);
   return { items, total: value };
@@ -56,4 +69,3 @@ export async function replaceRolePermissions(roleId: string, permissionIds: stri
     }
   });
 }
-

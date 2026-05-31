@@ -1,17 +1,27 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { MultipartFile } from '@fastify/multipart';
 import type { FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { env } from '../../config/env.js';
-import { getPagination, paged } from '../../shared/pagination.js';
+import { getPagination, getSort, paged } from '../../shared/pagination.js';
 import { writeAudit } from '../../shared/audit.js';
+import { NotFoundError } from '../../shared/errors.js';
 import type { FileListQuery } from './file.schema.js';
-import { createFileRecord, listFiles } from './file.repository.js';
+import { createFileRecord, deleteFile, getFile, listFiles } from './file.repository.js';
 
 export async function listFilesService(query: FileListQuery) {
   const pagination = getPagination(query);
-  const result = await listFiles({ q: query.q, limit: pagination.limit, offset: pagination.offset });
+  const sort = getSort(query, ['createdAt', 'originalName', 'sizeBytes']);
+  const result = await listFiles({
+    q: query.q,
+    createdAtFrom: query.createdAtFrom,
+    createdAtTo: query.createdAtTo,
+    sortBy: sort.sortBy,
+    sortOrder: sort.sortOrder,
+    limit: pagination.limit,
+    offset: pagination.offset,
+  });
   return paged(result.items, result.total, pagination.page, pagination.pageSize);
 }
 
@@ -34,3 +44,16 @@ export async function uploadFileService(request: FastifyRequest, file: Multipart
   return record;
 }
 
+export async function getFileService(id: string) {
+  const file = await getFile(id);
+  if (!file) throw new NotFoundError('File not found');
+  return file;
+}
+
+export async function deleteFileService(request: FastifyRequest, id: string) {
+  const file = await getFileService(id);
+  await deleteFile(id);
+  await unlink(file.path).catch(() => undefined);
+  await writeAudit(request, { action: 'delete', resource: 'file', resourceId: id });
+  return { deleted: true };
+}

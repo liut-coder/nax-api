@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { ConflictError, NotFoundError } from '../../shared/errors.js';
 import { hashPassword } from '../../shared/password.js';
-import { getPagination, paged } from '../../shared/pagination.js';
+import { getPagination, getSort, paged } from '../../shared/pagination.js';
 import { writeAudit } from '../../shared/audit.js';
 import type { CreateUserBody, UpdateUserBody, UserListQuery } from './user.schema.js';
 import {
@@ -22,7 +22,17 @@ function sanitizeUser(user: NonNullable<Awaited<ReturnType<typeof getUser>>>) {
 
 export async function listUsersService(query: UserListQuery) {
   const pagination = getPagination(query);
-  const result = await listUsers({ q: query.q, limit: pagination.limit, offset: pagination.offset });
+  const sort = getSort(query, ['createdAt', 'username', 'email']);
+  const result = await listUsers({
+    q: query.q,
+    status: query.status,
+    createdAtFrom: query.createdAtFrom,
+    createdAtTo: query.createdAtTo,
+    sortBy: sort.sortBy,
+    sortOrder: sort.sortOrder,
+    limit: pagination.limit,
+    offset: pagination.offset,
+  });
   return paged(result.items.map(sanitizeUser), result.total, pagination.page, pagination.pageSize);
 }
 
@@ -40,6 +50,7 @@ export async function createUserService(request: FastifyRequest, input: CreateUs
     username: input.username,
     displayName: input.displayName,
     passwordHash: await hashPassword(input.password),
+    status: input.status,
   });
   if (input.roleIds.length > 0) await replaceUserRoles(user.id, input.roleIds);
   await writeAudit(request, { action: 'create', resource: 'user', resourceId: user.id });
@@ -53,6 +64,7 @@ export async function updateUserService(request: FastifyRequest, id: string, inp
     email: input.email,
     username: input.username,
     displayName: input.displayName,
+    status: input.status,
     isActive: input.isActive,
     passwordHash: input.password ? await hashPassword(input.password) : undefined,
   });
@@ -69,4 +81,3 @@ export async function deleteUserService(request: FastifyRequest, id: string) {
   await writeAudit(request, { action: 'delete', resource: 'user', resourceId: id });
   return { deleted: true };
 }
-

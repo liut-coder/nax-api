@@ -1,6 +1,6 @@
-import { and, eq, gt, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, or } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { permissions, refreshTokens, rolePermissions, roles, userRoles, users } from '../../db/schema.js';
+import { menus, permissions, refreshTokens, rolePermissions, roles, userRoles, users } from '../../db/schema.js';
 
 export async function findUserForLogin(account: string) {
   return db.query.users.findFirst({
@@ -16,6 +16,19 @@ export async function findUserById(userId: string) {
 
 export async function touchLastLogin(userId: string): Promise<void> {
   await db.update(users).set({ lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
+}
+
+export async function updateCurrentUserProfile(userId: string, input: { displayName: string }) {
+  const [user] = await db
+    .update(users)
+    .set({ displayName: input.displayName, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return user;
+}
+
+export async function updateCurrentUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
 export async function getUserPermissionKeys(userId: string): Promise<string[]> {
@@ -56,6 +69,10 @@ export async function findActiveRefreshToken(tokenHash: string) {
   });
 }
 
+export async function touchRefreshToken(tokenHash: string): Promise<void> {
+  await db.update(refreshTokens).set({ lastUsedAt: new Date() }).where(eq(refreshTokens.tokenHash, tokenHash));
+}
+
 export async function revokeRefreshToken(tokenHash: string): Promise<void> {
   await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.tokenHash, tokenHash));
 }
@@ -67,3 +84,29 @@ export async function revokeUserRefreshTokens(userId: string): Promise<void> {
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
 }
 
+export async function listUserRefreshTokens(userId: string) {
+  return db.query.refreshTokens.findMany({
+    where: eq(refreshTokens.userId, userId),
+    orderBy: [desc(refreshTokens.createdAt)],
+  });
+}
+
+export async function getUserRefreshToken(userId: string, tokenId: string) {
+  return db.query.refreshTokens.findFirst({
+    where: and(eq(refreshTokens.userId, userId), eq(refreshTokens.id, tokenId)),
+  });
+}
+
+export async function revokeRefreshTokenById(userId: string, tokenId: string): Promise<void> {
+  await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(refreshTokens.userId, userId), eq(refreshTokens.id, tokenId), isNull(refreshTokens.revokedAt)));
+}
+
+export async function listEnabledMenus() {
+  return db.query.menus.findMany({
+    where: eq(menus.isEnabled, true),
+    orderBy: (table, { asc }) => [asc(table.sortOrder), asc(table.title)],
+  });
+}

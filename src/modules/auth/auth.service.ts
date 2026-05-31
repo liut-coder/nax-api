@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../../config/env.js';
-import { UnauthorizedError } from '../../shared/errors.js';
-import { verifyPassword } from '../../shared/password.js';
+import { AppError, UnauthorizedError } from '../../shared/errors.js';
+import { hashPassword, verifyPassword } from '../../shared/password.js';
 import { addDays, createOpaqueToken, hashToken } from '../../shared/token.js';
 import { writeAudit } from '../../shared/audit.js';
 import {
@@ -10,11 +10,60 @@ import {
   findUserById,
   findUserForLogin,
   getUserPermissionKeys,
+  getUserRefreshToken,
+  listEnabledMenus,
+  listUserRefreshTokens,
   revokeRefreshToken,
+  revokeRefreshTokenById,
   revokeUserRefreshTokens,
   touchLastLogin,
+  touchRefreshToken,
+  updateCurrentUserPassword,
+  updateCurrentUserProfile,
 } from './auth.repository.js';
-import type { LoginBody } from './auth.schema.js';
+import type { ChangePasswordBody, LoginBody, UpdateProfileBody } from './auth.schema.js';
+
+type LoginFailureBucket = {
+  count: number;
+  firstFailedAt: number;
+};
+
+const loginFailures = new Map<string, LoginFailureBucket>();
+
+function loginFailureKey(request: FastifyRequest, account: string): string {
+  return `${request.ip}:${account.trim().toLowerCase()}`;
+}
+
+function ensureLoginAllowed(request: FastifyRequest, account: string): void {
+  const key = loginFailureKey(request, account);
+  const bucket = loginFailures.get(key);
+  if (!bucket) return;
+  const now = Date.now();
+  const windowMs = env.LOGIN_FAILURE_WINDOW_SECONDS * 1000;
+  if (now - bucket.firstFailedAt > windowMs) {
+    loginFailures.delete(key);
+    return;
+  }
+  if (bucket.count >= env.LOGIN_FAILURE_LIMIT) {
+    throw new AppError('LOGIN_LOCKED', 'Too many failed login attempts. Try again later.', 429);
+  }
+}
+
+function recordLoginFailure(request: FastifyRequest, account: string): void {
+  const key = loginFailureKey(request, account);
+  const now = Date.now();
+  const windowMs = env.LOGIN_FAILURE_WINDOW_SECONDS * 1000;
+  const bucket = loginFailures.get(key);
+  if (!bucket || now - bucket.firstFailedAt > windowMs) {
+    loginFailures.set(key, { count: 1, firstFailedAt: now });
+    return;
+  }
+  bucket.count += 1;
+}
+
+function clearLoginFailures(request: FastifyRequest, account: string): void {
+  loginFailures.delete(loginFailureKey(request, account));
+}
 
 function setRefreshCookie(reply: FastifyReply, token: string): void {
   reply.setCookie(env.REFRESH_COOKIE_NAME, token, {
@@ -62,16 +111,24 @@ async function issueSession(request: FastifyRequest, reply: FastifyReply, user: 
       email: user.email,
       username: user.username,
       displayName: user.displayName,
+      status: user.status,
       permissions,
     },
   };
 }
 
+function isUsableUser(user: Pick<NonNullable<Awaited<ReturnType<typeof findUserById>>>, 'isActive' | 'status'>): boolean {
+  return user.isActive && user.status === 'active';
+}
+
 export async function login(request: FastifyRequest, reply: FastifyReply, input: LoginBody) {
+  ensureLoginAllowed(request, input.account);
   const user = await findUserForLogin(input.account);
-  if (!user || !user.isActive || !(await verifyPassword(user.passwordHash, input.password))) {
+  if (!user || !isUsableUser(user) || !(await verifyPassword(user.passwordHash, input.password))) {
+    recordLoginFailure(request, input.account);
     throw new UnauthorizedError('Invalid account or password');
   }
+  clearLoginFailures(request, input.account);
   await touchLastLogin(user.id);
   await writeAudit(request, { action: 'login', resource: 'auth', resourceId: user.id });
   return issueSession(request, reply, user);
@@ -80,11 +137,13 @@ export async function login(request: FastifyRequest, reply: FastifyReply, input:
 export async function refresh(request: FastifyRequest, reply: FastifyReply) {
   const token = request.cookies[env.REFRESH_COOKIE_NAME];
   if (!token) throw new UnauthorizedError('Refresh token missing');
-  const stored = await findActiveRefreshToken(hashToken(token));
+  const tokenHash = hashToken(token);
+  const stored = await findActiveRefreshToken(tokenHash);
   if (!stored) throw new UnauthorizedError('Refresh token invalid');
-  await revokeRefreshToken(hashToken(token));
+  await touchRefreshToken(tokenHash);
+  await revokeRefreshToken(tokenHash);
   const user = await findUserById(stored.userId);
-  if (!user || !user.isActive) throw new UnauthorizedError('User disabled');
+  if (!user || !isUsableUser(user)) throw new UnauthorizedError('User disabled');
   await writeAudit(request, { action: 'refresh', resource: 'auth', resourceId: user.id });
   return issueSession(request, reply, user);
 }
@@ -108,13 +167,93 @@ export async function logoutAll(request: FastifyRequest, reply: FastifyReply): P
 export async function me(request: FastifyRequest) {
   if (!request.auth?.userId) throw new UnauthorizedError();
   const user = await findUserById(request.auth.userId);
-  if (!user || !user.isActive) throw new UnauthorizedError();
+  if (!user || !isUsableUser(user)) throw new UnauthorizedError();
   return {
     id: user.id,
     email: user.email,
     username: user.username,
     displayName: user.displayName,
+    status: user.status,
     permissions: request.auth.permissions,
   };
 }
 
+export async function updateProfile(request: FastifyRequest, input: UpdateProfileBody) {
+  if (!request.auth?.userId) throw new UnauthorizedError();
+  const user = await updateCurrentUserProfile(request.auth.userId, input);
+  if (!user || !isUsableUser(user)) throw new UnauthorizedError();
+  await writeAudit(request, { action: 'update_profile', resource: 'auth', resourceId: user.id });
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    displayName: user.displayName,
+    status: user.status,
+    permissions: request.auth.permissions,
+  };
+}
+
+export async function changePassword(request: FastifyRequest, reply: FastifyReply, input: ChangePasswordBody) {
+  if (!request.auth?.userId) throw new UnauthorizedError();
+  const user = await findUserById(request.auth.userId);
+  if (!user || !isUsableUser(user)) throw new UnauthorizedError();
+  if (!(await verifyPassword(user.passwordHash, input.currentPassword))) {
+    throw new UnauthorizedError('Current password invalid');
+  }
+  await updateCurrentUserPassword(user.id, await hashPassword(input.newPassword));
+  await revokeUserRefreshTokens(user.id);
+  clearRefreshCookie(reply);
+  await writeAudit(request, { action: 'change_password', resource: 'auth', resourceId: user.id });
+  return { changed: true };
+}
+
+export async function listSessions(request: FastifyRequest) {
+  if (!request.auth?.userId) throw new UnauthorizedError();
+  const sessions = await listUserRefreshTokens(request.auth.userId);
+  return sessions.map((session) => ({
+    id: session.id,
+    userAgent: session.userAgent,
+    ipAddress: session.ipAddress,
+    expiresAt: session.expiresAt,
+    revokedAt: session.revokedAt,
+    lastUsedAt: session.lastUsedAt,
+    createdAt: session.createdAt,
+    isActive: !session.revokedAt && session.expiresAt > new Date(),
+  }));
+}
+
+export async function revokeSession(request: FastifyRequest, tokenId: string) {
+  if (!request.auth?.userId) throw new UnauthorizedError();
+  const session = await getUserRefreshToken(request.auth.userId, tokenId);
+  if (!session) throw new UnauthorizedError('Session not found');
+  await revokeRefreshTokenById(request.auth.userId, tokenId);
+  await writeAudit(request, { action: 'revoke_session', resource: 'auth', resourceId: tokenId });
+  return { revoked: true };
+}
+
+export async function currentUserMenus(request: FastifyRequest) {
+  if (!request.auth?.userId) throw new UnauthorizedError();
+  const permissions = new Set(request.auth.permissions);
+  const rows = await listEnabledMenus();
+  const allowed = rows.filter((menu) => menu.isVisible && (!menu.permissionKey || permissions.has(menu.permissionKey)));
+  const byParent = new Map<string | null, typeof allowed>();
+  for (const menu of allowed) {
+    const parentId = menu.parentId ?? null;
+    const current = byParent.get(parentId) ?? [];
+    current.push(menu);
+    byParent.set(parentId, current);
+  }
+  const build = (parentId: string | null): unknown[] =>
+    (byParent.get(parentId) ?? []).map((menu) => ({
+      id: menu.id,
+      key: menu.key,
+      title: menu.title,
+      path: menu.path,
+      icon: menu.icon,
+      permissionKey: menu.permissionKey,
+      sortOrder: menu.sortOrder,
+      meta: menu.meta,
+      children: build(menu.id),
+    }));
+  return build(null);
+}

@@ -35,9 +35,15 @@ This project is intentionally generic. It can be reused for infra-control, HMN, 
 - User-role and role-permission relations
 - RBAC permission guard
 - System settings
+- Data dictionaries
+- Editable public base information
+- Menu management and current-user menu tree
+- Dashboard overview
+- Session management
 - Audit logs
-- File upload
+- File upload, download and delete
 - Pagination helper
+- Safe generator preview API and explicit CLI file generation
 - Admin initialization script
 - Seed script
 
@@ -61,6 +67,12 @@ src/
     roles/
     permissions/
     settings/
+    menus/
+    dictionaries/
+    dashboard/
+    system/
+    sessions/
+    generator/
     audit/
     files/
     health/
@@ -181,10 +193,12 @@ Start the API:
 npm run dev
 ```
 
-Health check:
+Health checks:
 
 ```bash
 curl http://localhost:3000/api/v1/health
+curl http://localhost:3000/api/v1/health/live
+curl http://localhost:3000/api/v1/health/ready
 ```
 
 Swagger:
@@ -224,6 +238,10 @@ docker compose exec \
   api npm run admin:init
 ```
 
+## Production
+
+See [docs/deploy/production.md](docs/deploy/production.md) for a systemd and Nginx deployment example.
+
 ## Login
 
 ```bash
@@ -244,21 +262,84 @@ curl http://localhost:3000/api/v1/users \
 ## Core Endpoints
 
 - `GET /api/v1/health`
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `POST /api/v1/auth/logout-all`
 - `GET /api/v1/auth/me`
+- `PATCH /api/v1/auth/profile`
+- `POST /api/v1/auth/change-password`
+- `GET /api/v1/auth/sessions`
+- `DELETE /api/v1/auth/sessions/:id`
+- `GET /api/v1/auth/menus`
+- `GET /api/v1/system/base-info`
+- `GET /api/v1/dashboard/overview`
 - `GET /api/v1/users`
 - `POST /api/v1/users`
 - `GET /api/v1/roles`
 - `POST /api/v1/roles`
 - `GET /api/v1/permissions`
+- `GET /api/v1/menus/tree`
 - `GET /api/v1/settings`
 - `PUT /api/v1/settings/:key`
-- `GET /api/v1/audit-logs`
-- `GET /api/v1/files`
-- `POST /api/v1/files/upload`
+- `GET /api/v1/dictionaries`
+- `GET /api/v1/audit-logs/export.csv`
+- `GET /api/v1/sessions`
+- `DELETE /api/v1/sessions/:id`
+- `POST /api/v1/generator/modules/preview`
+- `POST /api/v1/generator/projects/preview`
+
+## Security
+
+- Global rate limit is controlled by `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW`.
+- Login route rate limit is controlled by `LOGIN_RATE_LIMIT_MAX`.
+- Repeated login failures are locked per account and IP with `LOGIN_FAILURE_LIMIT` and `LOGIN_FAILURE_WINDOW_SECONDS`.
+- `COOKIE_SECURE=true` should be used behind HTTPS in production.
+
+## Base Information
+
+Public frontend bootstrap data is available without authentication:
+
+```bash
+curl http://localhost:3000/api/v1/system/base-info
+```
+
+The values come from editable `system_settings` rows in group `base`, for example:
+
+- `base.name`
+- `base.logoUrl`
+- `base.version`
+- `base.loginTitle`
+- `base.loginSubtitle`
+- `base.defaultLanguage`
+- `base.theme`
+
+Admins can update them through:
+
+```text
+PUT /api/v1/settings/:key
+```
+
+## Generator
+
+Preview a module from API:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/generator/modules/preview \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"name":"demo-task"}'
+```
+
+CLI defaults to preview output and writes files only with `--write`:
+
+```bash
+npm run generate:module -- --name=demo-task
+npm run generate:module -- --name=demo-task --write
+npm run generate:module -- --type=project --name=demo-api
+```
 
 ## Prototype Pack
 
@@ -269,4 +350,3 @@ The admin UI prototype assets are outside this backend repository:
 ```
 
 The backend remains UI-agnostic, but the route and RBAC design follows the generic management-console needs shown in that prototype pack.
-

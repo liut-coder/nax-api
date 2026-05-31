@@ -26,9 +26,10 @@ async function main(): Promise<void> {
         .values({
           email: env.ADMIN_EMAIL,
           username: env.ADMIN_USERNAME,
-          displayName: env.ADMIN_DISPLAY_NAME,
-          passwordHash,
-        })
+        displayName: env.ADMIN_DISPLAY_NAME,
+        passwordHash,
+        status: 'active',
+      })
         .returning()
     )[0];
 
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
         username: env.ADMIN_USERNAME,
         displayName: env.ADMIN_DISPLAY_NAME,
         passwordHash,
+        status: 'active',
         isActive: true,
         updatedAt: new Date(),
       })
@@ -61,4 +63,3 @@ main()
   .finally(() => {
     void closeDb();
   });
-

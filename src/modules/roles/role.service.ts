@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../shared/errors.js';
-import { getPagination, paged } from '../../shared/pagination.js';
+import { getPagination, getSort, paged } from '../../shared/pagination.js';
 import { writeAudit } from '../../shared/audit.js';
 import type { CreateRoleBody, RoleListQuery, UpdateRoleBody } from './role.schema.js';
 import {
@@ -16,7 +16,16 @@ import {
 
 export async function listRolesService(query: RoleListQuery) {
   const pagination = getPagination(query);
-  const result = await listRoles({ q: query.q, limit: pagination.limit, offset: pagination.offset });
+  const sort = getSort(query, ['key', 'name', 'createdAt'], 'key');
+  const result = await listRoles({
+    q: query.q,
+    createdAtFrom: query.createdAtFrom,
+    createdAtTo: query.createdAtTo,
+    sortBy: sort.sortBy,
+    sortOrder: sort.sortOrder,
+    limit: pagination.limit,
+    offset: pagination.offset,
+  });
   return paged(result.items, result.total, pagination.page, pagination.pageSize);
 }
 
@@ -52,4 +61,3 @@ export async function deleteRoleService(request: FastifyRequest, id: string) {
   await writeAudit(request, { action: 'delete', resource: 'role', resourceId: id });
   return { deleted: true };
 }
-

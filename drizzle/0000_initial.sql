@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   username varchar(80) NOT NULL,
   display_name varchar(120) NOT NULL,
   password_hash text NOT NULL,
+  status varchar(40) NOT NULL DEFAULT 'active',
   is_active boolean NOT NULL DEFAULT true,
   last_login_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   ip_address varchar(80),
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
+  last_used_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -74,6 +76,10 @@ CREATE TABLE IF NOT EXISTS system_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key varchar(120) NOT NULL,
   value jsonb NOT NULL,
+  "group" varchar(80) NOT NULL DEFAULT 'general',
+  type varchar(40) NOT NULL DEFAULT 'json',
+  is_public boolean NOT NULL DEFAULT false,
+  is_editable boolean NOT NULL DEFAULT true,
   description text NOT NULL DEFAULT '',
   updated_by uuid REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -81,6 +87,25 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS system_settings_key_idx ON system_settings (key);
+
+CREATE TABLE IF NOT EXISTS menus (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id uuid,
+  key varchar(120) NOT NULL,
+  title varchar(160) NOT NULL,
+  path varchar(240),
+  icon varchar(80),
+  permission_key varchar(120),
+  sort_order integer NOT NULL DEFAULT 0,
+  is_visible boolean NOT NULL DEFAULT true,
+  is_enabled boolean NOT NULL DEFAULT true,
+  meta jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS menus_key_idx ON menus (key);
+CREATE INDEX IF NOT EXISTS menus_parent_idx ON menus (parent_id);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,4 +134,3 @@ CREATE TABLE IF NOT EXISTS files (
 );
 
 CREATE INDEX IF NOT EXISTS files_uploaded_by_idx ON files (uploaded_by);
-

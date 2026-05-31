@@ -20,6 +20,7 @@ export const users = pgTable(
     username: varchar('username', { length: 80 }).notNull(),
     displayName: varchar('display_name', { length: 120 }).notNull(),
     passwordHash: text('password_hash').notNull(),
+    status: varchar('status', { length: 40 }).notNull().default('active'),
     isActive: boolean('is_active').notNull().default(true),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -108,6 +109,7 @@ export const refreshTokens = pgTable(
     ipAddress: varchar('ip_address', { length: 80 }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
@@ -122,6 +124,10 @@ export const systemSettings = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     key: varchar('key', { length: 120 }).notNull(),
     value: jsonb('value').notNull(),
+    group: varchar('group', { length: 80 }).notNull().default('general'),
+    type: varchar('type', { length: 40 }).notNull().default('json'),
+    isPublic: boolean('is_public').notNull().default(false),
+    isEditable: boolean('is_editable').notNull().default(true),
     description: text('description').notNull().default(''),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -129,6 +135,68 @@ export const systemSettings = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex('system_settings_key_idx').on(table.key),
+  }),
+);
+
+export const menus = pgTable(
+  'menus',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    parentId: uuid('parent_id'),
+    key: varchar('key', { length: 120 }).notNull(),
+    title: varchar('title', { length: 160 }).notNull(),
+    path: varchar('path', { length: 240 }),
+    icon: varchar('icon', { length: 80 }),
+    permissionKey: varchar('permission_key', { length: 120 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isVisible: boolean('is_visible').notNull().default(true),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    meta: jsonb('meta').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    keyIdx: uniqueIndex('menus_key_idx').on(table.key),
+    parentIdx: index('menus_parent_idx').on(table.parentId),
+  }),
+);
+
+export const dataDictionaries = pgTable(
+  'data_dictionaries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: varchar('key', { length: 120 }).notNull(),
+    name: varchar('name', { length: 160 }).notNull(),
+    description: text('description').notNull().default(''),
+    isSystem: boolean('is_system').notNull().default(false),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    keyIdx: uniqueIndex('data_dictionaries_key_idx').on(table.key),
+  }),
+);
+
+export const dataDictionaryItems = pgTable(
+  'data_dictionary_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dictionaryId: uuid('dictionary_id')
+      .notNull()
+      .references(() => dataDictionaries.id, { onDelete: 'cascade' }),
+    label: varchar('label', { length: 160 }).notNull(),
+    value: varchar('value', { length: 160 }).notNull(),
+    color: varchar('color', { length: 40 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    meta: jsonb('meta').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    dictionaryValueIdx: uniqueIndex('data_dictionary_items_dictionary_value_idx').on(table.dictionaryId, table.value),
+    dictionaryIdx: index('data_dictionary_items_dictionary_idx').on(table.dictionaryId),
   }),
 );
 
@@ -182,3 +250,20 @@ export const permissionsRelations = relations(permissions, ({ many }) => ({
   rolePermissions: many(rolePermissions),
 }));
 
+export const dataDictionariesRelations = relations(dataDictionaries, ({ many }) => ({
+  items: many(dataDictionaryItems),
+}));
+
+export const dataDictionaryItemsRelations = relations(dataDictionaryItems, ({ one }) => ({
+  dictionary: one(dataDictionaries, {
+    fields: [dataDictionaryItems.dictionaryId],
+    references: [dataDictionaries.id],
+  }),
+}));
+
+export const menusRelations = relations(menus, ({ one }) => ({
+  parent: one(menus, {
+    fields: [menus.parentId],
+    references: [menus.id],
+  }),
+}));

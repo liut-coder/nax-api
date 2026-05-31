@@ -3,6 +3,7 @@ import { paginationQuerySchema } from '../../shared/pagination.js';
 
 export const userListQuerySchema = paginationQuerySchema.extend({
   q: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const createUserBodySchema = z.object({
@@ -10,6 +11,7 @@ export const createUserBodySchema = z.object({
   username: z.string().min(3).max(80),
   displayName: z.string().min(1).max(120),
   password: z.string().min(8),
+  status: z.enum(['active', 'disabled', 'locked', 'pending']).default('active'),
   roleIds: z.array(z.string().uuid()).default([]),
 });
 
@@ -18,6 +20,7 @@ export const updateUserBodySchema = z.object({
   username: z.string().min(3).max(80).optional(),
   displayName: z.string().min(1).max(120).optional(),
   password: z.string().min(8).optional(),
+  status: z.enum(['active', 'disabled', 'locked', 'pending']).optional(),
   isActive: z.boolean().optional(),
   roleIds: z.array(z.string().uuid()).optional(),
 });
@@ -25,4 +28,3 @@ export const updateUserBodySchema = z.object({
 export type UserListQuery = z.infer<typeof userListQuerySchema>;
 export type CreateUserBody = z.infer<typeof createUserBodySchema>;
 export type UpdateUserBody = z.infer<typeof updateUserBodySchema>;
-

@@ -12,9 +12,23 @@ export const permissions = [
   'permission:list',
   'setting:list',
   'setting:update',
+  'menu:list',
+  'menu:create',
+  'menu:update',
+  'menu:delete',
+  'dictionary:list',
+  'dictionary:read',
+  'dictionary:create',
+  'dictionary:update',
+  'dictionary:delete',
   'audit:list',
   'file:upload',
   'file:list',
+  'file:delete',
+  'session:list',
+  'session:revoke',
+  'dashboard:read',
+  'generator:preview',
 ] as const;
 
 export type PermissionKey = (typeof permissions)[number];
@@ -27,11 +41,31 @@ export const rolePermissions: Record<string, PermissionKey[]> = {
     'role:list',
     'permission:list',
     'setting:list',
+    'menu:list',
+    'dictionary:list',
+    'dictionary:read',
+    'dictionary:create',
+    'dictionary:update',
     'audit:list',
     'file:upload',
     'file:list',
+    'session:list',
+    'dashboard:read',
   ],
-  viewer: ['user:list', 'user:read', 'role:list', 'permission:list', 'setting:list', 'audit:list', 'file:list'],
+  viewer: [
+    'user:list',
+    'user:read',
+    'role:list',
+    'permission:list',
+    'setting:list',
+    'menu:list',
+    'dictionary:list',
+    'dictionary:read',
+    'audit:list',
+    'file:list',
+    'session:list',
+    'dashboard:read',
+  ],
 };
 
 export const defaultRoles = [
@@ -39,4 +73,3 @@ export const defaultRoles = [
   { key: 'operator', name: 'Operator', description: 'Operational access without destructive administration' },
   { key: 'viewer', name: 'Viewer', description: 'Read-only access' },
 ] as const;
-

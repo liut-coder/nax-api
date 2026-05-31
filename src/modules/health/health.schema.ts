@@ -6,3 +6,8 @@ export const healthResponseSchema = z.object({
   timestamp: z.string(),
 });
 
+export const readinessResponseSchema = healthResponseSchema.extend({
+  checks: z.object({
+    database: z.literal('ok'),
+  }),
+});
